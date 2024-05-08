@@ -127,6 +127,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->act_pos = p->sz;
+
   return p;
 }
 
@@ -143,6 +145,7 @@ freeproc(struct proc *p)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
+  p->act_pos = 0;
   p->pid = 0;
   p->parent = 0;
   p->name[0] = 0;
@@ -253,6 +256,28 @@ growproc(int n)
   return 0;
 }
 
+
+//处理实际需求的地址是否合理
+int
+is_lazy_work(uint64 va){
+  struct proc *p = myproc();
+  if(va >= p->sz){
+    //printf("超出边界,kill\n");
+    return 0;
+  }
+  else if(va < p->act_pos){
+    if(va < PGROUNDDOWN(p->trapframe->sp) && va >= PGROUNDDOWN(p->trapframe->sp)-PGSIZE){
+      return 0;
+    }
+    printf("分配地址小于原地址\n");
+    return 0;
+  }
+ return 1;
+}
+
+
+
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -273,8 +298,9 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+  //np->sz = p->sz;
   np->sz = p->sz;
-
+  np->act_pos = p->act_pos;
   np->parent = p;
 
   // copy saved user registers.
