@@ -104,9 +104,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  uint64 act_pos;
+  //uint64 act_pos;
 };
 
-
-int
-is_lazy_work(uint64 va);

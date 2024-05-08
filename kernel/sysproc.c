@@ -47,7 +47,7 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  myproc()->act_pos = addr;
+  //myproc()->act_pos = addr;
   if(n > 0){
     myproc()->sz = myproc()->sz + n;
   }

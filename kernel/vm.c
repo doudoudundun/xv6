@@ -6,6 +6,7 @@
 #include "defs.h"
 #include "fs.h"
 
+
 /*
  * the kernel's page table.
  */
@@ -363,6 +364,9 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+  if(is_lazy_work(dstva)){
+    uvmlazywork(dstva);
+  }
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
@@ -388,7 +392,9 @@ int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
   uint64 n, va0, pa0;
-
+  if(is_lazy_work(srcva)){    //防止copy到未分配的页
+    uvmlazywork(srcva);
+  }
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);

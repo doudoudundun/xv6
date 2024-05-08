@@ -127,7 +127,7 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  p->act_pos = p->sz;
+  //p->act_pos = p->sz;
 
   return p;
 }
@@ -145,7 +145,7 @@ freeproc(struct proc *p)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
-  p->act_pos = 0;
+  //p->act_pos = 0;
   p->pid = 0;
   p->parent = 0;
   p->name[0] = 0;
@@ -261,19 +261,40 @@ growproc(int n)
 int
 is_lazy_work(uint64 va){
   struct proc *p = myproc();
+  pte_t *pte;
+  //pte = (pte_t*)walk(p->pagetable , va, 0);
   if(va >= p->sz){
     //printf("超出边界,kill\n");
     return 0;
   }
-  else if(va < p->act_pos){
-    if(va < PGROUNDDOWN(p->trapframe->sp) && va >= PGROUNDDOWN(p->trapframe->sp)-PGSIZE){
+  else if(PGROUNDDOWN(va) == r_sp()){
       return 0;
-    }
-    printf("分配地址小于原地址\n");
+  }
+  else if(((pte = walk(p->pagetable,va, 0)) != 0) && ((*pte & PTE_V)!=0)){
     return 0;
   }
+    
  return 1;
 }
+
+void
+uvmlazywork(uint64 va){
+  struct proc *p = myproc();
+  uint64 ka = (uint64)kalloc();
+  if(ka == 0){
+    //printf("lazy alloc: out of memory\n");
+    p->killed = 1;
+  } else{
+      memset((void*)ka , 0 ,PGSIZE);
+      va = PGROUNDDOWN(va);
+      if(mappages(p->pagetable,va,PGSIZE,ka,PTE_W|PTE_U|PTE_R)!= 0){
+        printf("lazy alloc: failed to map page\n");
+        kfree((void*)ka);
+        p->killed = 1;
+      }
+    }
+}
+
 
 
 
@@ -300,7 +321,7 @@ fork(void)
   }
   //np->sz = p->sz;
   np->sz = p->sz;
-  np->act_pos = p->act_pos;
+  //np->act_pos = p->act_pos;
   np->parent = p;
 
   // copy saved user registers.
