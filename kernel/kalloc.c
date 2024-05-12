@@ -9,10 +9,22 @@
 #include "riscv.h"
 #include "defs.h"
 
+#define PA2PGREF_ID(p) (((p)-KERNBASE)/PGSIZE)
+#define PGREF_MAX PA2PGREF_ID(PHYSTOP)
+
+
+
+
+
+
+
+
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
+int ref_page[PGREF_MAX];
+#define PA2PGREF(p) ref_page[PA2PGREF_ID((uint64)(p))]
 
 struct run {
   struct run *next;
@@ -21,12 +33,19 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
+  //char *_end; 
 } kmem;
 
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  //int page_cnt = PHYSTOP / PGSIZE;
+  printf("pagecnt = %d\n", PGREF_MAX);
+  // for(int n = 0 ; n < PGREF_MAX; n++){
+  //   ref_page[n] = 0;
+  // }
+  //kmem._end = ref_page + page_cnt ;
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -43,13 +62,45 @@ freerange(void *pa_start, void *pa_end)
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
+int pa_index(uint64 pa){
+  pa = PGROUNDDOWN(pa);
+  return PA2PGREF_ID(pa);
+}
+
+void incr(uint64 pa){
+  acquire(&kmem.lock);
+  //int index = pa_index(pa);
+  ref_page[PA2PGREF_ID(pa)]++;
+  release(&kmem.lock);
+}
+
+void decr(uint64 pa){
+  acquire(&kmem.lock);
+  //int index = pa_index(pa);
+  ref_page[PA2PGREF_ID(pa)]--;
+  release(&kmem.lock);
+}
+
+
 void
 kfree(void *pa)
 {
+  //int index = pa_index((uint64)pa);
+  // if(ref_page[PA2PGREF_ID((uint64)pa)] > 1){
+  //   decr((uint64)pa);
+  //   return;
+  // }
+  
+  if(--PA2PGREF(pa) > 0){
+    return;
+  }
+  
   struct run *r;
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -59,6 +110,7 @@ kfree(void *pa)
   acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
+  PA2PGREF(pa) = 0;
   release(&kmem.lock);
 }
 
@@ -76,7 +128,11 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
+  //ref_page[PA2PGREF_ID((uint64)r)] = 1;
+    PA2PGREF((uint64)r) = 1;
+  }
+    
   return (void*)r;
 }
