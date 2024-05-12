@@ -3,3 +3,6 @@ lab2  1 afternoon 1 night   almost 6hours
 lab3  perhaps 8 hours
 lab4  2 morning 1 afternoon 1 night  8-10hours
 lab5  1 afternoon 1 night to 2 AM    6-8hours
+lab6  1 afternoon 1 night            6hours   (not already good ,please add a newlock )
+
+
